@@ -74,7 +74,7 @@ return (
             <div className="p-6">
                 <div className="text-xl font-bold flex items-center gap-2">
                     <div className="w-8 h-8 bg-black rounded-lg"></div>
-                    Short.io
+                    Short.io Pro
                 </div>
             </div>
 
