@@ -4,39 +4,67 @@ import { useNavigate } from 'react-router-dom'
 import { Link2, Plus, Users, BarChart3, Settings, ExternalLink } from 'lucide-react'
 
 // Mock Data
-const MOCK_LINKS = [
-    { id: 1, original: 'https://github.com/obra/superpowers', slug: 'super-powers', clicks: 124, created_at: '2026-01-15' },
-    { id: 2, original: 'https://react.dev/reference/react', slug: 'react-docs', clicks: 843, created_at: '2026-01-10' },
-]
-
 export default function Dashboard() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
-    const [links, setLinks] = useState(MOCK_LINKS)
+    const [links, setLinks] = useState([])
     const [showModal, setShowModal] = useState(false)
     const [newUrl, setNewUrl] = useState('')
+    const [customSlug, setCustomSlug] = useState('')
     const [activeTab, setActiveTab] = useState('Links')
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        // Get Session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!session) navigate('/login')
-            else setUser(session.user)
+            if (!session) {
+                navigate('/login')
+            } else {
+                setUser(session.user)
+                fetchLinks(session.user.id)
+            }
         })
     }, [])
 
-    const handleCreateLink = (e) => {
+    const fetchLinks = async (userId) => {
+        const { data, error } = await supabase
+            .from('links')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+
+        if (data) setLinks(data)
+        setLoading(false)
+    }
+
+    const handleCreateLink = async (e) => {
         e.preventDefault()
-        // Simulate DB insert
-        const newLink = {
-            id: Date.now(),
-            original: newUrl,
-            slug: Math.random().toString(36).substring(7),
-            clicks: 0,
-            created_at: new Date().toISOString().split('T')[0]
+        if (!newUrl) return
+
+        // 1. Generate or use custom slug
+        const slug = customSlug || Math.random().toString(36).substring(2, 8)
+
+        // 2. Insert into Supabase
+        const { data, error } = await supabase
+            .from('links')
+            .insert([
+                {
+                    original: newUrl,
+                    slug: slug,
+                    user_id: user.id
+                }
+            ])
+            .select()
+
+        if (error) {
+            alert('Error creating link: ' + error.message)
+        } else {
+            // 3. Update UI
+            setLinks([data[0], ...links])
+            setShowModal(false)
+            setNewUrl('')
+            setCustomSlug('')
         }
-        setLinks([newLink, ...links])
-        setShowModal(false)
-        setNewUrl('')
     }
 
     if (!user) return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -98,9 +126,9 @@ export default function Dashboard() {
                     {activeTab === 'Links' && (
                         <>
                             <div className="grid grid-cols-3 gap-6 mb-8">
-                                <StatCard label="Total Clicks" value="12,493" change="+12%" />
+                                <StatCard label="Total Clicks" value={links.reduce((acc, curr) => acc + (curr.clicks || 0), 0)} />
                                 <StatCard label="Active Links" value={links.length} />
-                                <StatCard label="Top Source" value="Twitter" />
+                                <StatCard label="Top Source" value="Direct" />
                             </div>
 
                             <div className="bg-white rounded-xl border shadow-sm">
@@ -109,34 +137,40 @@ export default function Dashboard() {
                                     <div className="text-sm text-gray-500">{links.length} results</div>
                                 </div>
                                 <div>
-                                    {links.map(link => (
-                                        <div key={link.id} className="px-6 py-4 border-b last:border-0 hover:bg-gray-50 transition-colors group flex items-center justify-between">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <a
-                                                        href={`${window.location.protocol}//${window.location.host}/${link.slug}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="font-medium text-blue-600 hover:underline"
-                                                    >
-                                                        {window.location.host}/{link.slug}
-                                                    </a>
-                                                    <button
-                                                        onClick={() => navigator.clipboard.writeText(`${window.location.protocol}//${window.location.host}/${link.slug}`)}
-                                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded"
-                                                        title="Copy to clipboard"
-                                                    >
-                                                        <ExternalLink size={14} className="text-gray-500" />
-                                                    </button>
+                                    {loading ? (
+                                        <div className="p-8 text-center text-gray-500">Loading links...</div>
+                                    ) : links.length === 0 ? (
+                                        <div className="p-8 text-center text-gray-500">No links yet. Create one!</div>
+                                    ) : (
+                                        links.map(link => (
+                                            <div key={link.id} className="px-6 py-4 border-b last:border-0 hover:bg-gray-50 transition-colors group flex items-center justify-between">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <a
+                                                            href={`${window.location.protocol}//${window.location.host}/${link.slug}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-medium text-blue-600 hover:underline"
+                                                        >
+                                                            {window.location.host}/{link.slug}
+                                                        </a>
+                                                        <button
+                                                            onClick={() => navigator.clipboard.writeText(`${window.location.protocol}//${window.location.host}/${link.slug}`)}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded"
+                                                            title="Copy to clipboard"
+                                                        >
+                                                            <ExternalLink size={14} className="text-gray-500" />
+                                                        </button>
+                                                    </div>
+                                                    <div className="text-sm text-gray-500 truncate max-w-md">{link.original}</div>
                                                 </div>
-                                                <div className="text-sm text-gray-500 truncate max-w-md">{link.original}</div>
+                                                <div className="text-right">
+                                                    <div className="font-semibold">{link.clicks}</div>
+                                                    <div className="text-xs text-gray-400">{new Date(link.created_at).toLocaleDateString()}</div>
+                                                </div>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="font-semibold">{link.clicks}</div>
-                                                <div className="text-xs text-gray-400">{link.created_at}</div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         </>
