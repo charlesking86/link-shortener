@@ -147,15 +147,15 @@ export default function Dashboard() {
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <a
-                                                            href={`${window.location.protocol}//${window.location.host}/${link.slug}`}
+                                                            href={`https://gobd.site/${link.slug}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="font-medium text-blue-600 hover:underline"
                                                         >
-                                                            {window.location.host}/{link.slug}
+                                                            gobd.site/{link.slug}
                                                         </a>
                                                         <button
-                                                            onClick={() => navigator.clipboard.writeText(`${window.location.protocol}//${window.location.host}/${link.slug}`)}
+                                                            onClick={() => navigator.clipboard.writeText(`https://gobd.site/${link.slug}`)}
                                                             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded"
                                                             title="Copy to clipboard"
                                                         >
