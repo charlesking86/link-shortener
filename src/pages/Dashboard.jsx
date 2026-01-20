@@ -415,6 +415,7 @@ export default function Dashboard() {
                                                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <ActionButton icon={<Pencil size={14} />} onClick={() => openEditModal(link)} tooltip="Edit" />
                                                             <ActionButton icon={<BarChart2 size={14} />} onClick={() => setActiveTab('Analytics')} tooltip="Stats" />
+                                                            <ActionButton icon={<QrCode size={14} />} onClick={() => openQR(link)} tooltip="QR Code" />
                                                             <ActionButton icon={<Share2 size={14} />} tooltip="Share" />
                                                             <ActionButton icon={<Trash2 size={14} />} onClick={() => handleDelete(link.id)} tooltip="Delete" danger />
                                                         </div>
