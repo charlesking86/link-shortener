@@ -52,13 +52,20 @@ export default function Dashboard() {
         e.preventDefault()
         const slug = Math.random().toString(36).substring(7)
 
+        // Extract Advanced Options
+        const formData = new FormData(e.target);
+        const iosUrl = formData.get('ios_url');
+        const androidUrl = formData.get('android_url');
+
         const { data, error } = await supabase
             .from('links')
             .insert([
                 {
                     original: newUrl,
                     slug: slug,
-                    user_id: user.id
+                    user_id: user.id,
+                    ios_url: iosUrl || null,
+                    android_url: androidUrl || null
                 }
             ])
             .select()
@@ -245,31 +252,61 @@ export default function Dashboard() {
                 {/* Create Link Modal */}
                 {showModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                        <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 animate-in fade-in zoom-in duration-200">
                             <h2 className="text-xl font-bold mb-4">Create New Link</h2>
-                            <form onSubmit={handleCreateLink}>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium mb-1">Destination URL</label>
+                            <form onSubmit={handleCreateLink} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Destination URL (Default)</label>
                                     <input
                                         type="url"
                                         required
-                                        className="w-full p-2 border rounded-lg"
+                                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none"
                                         placeholder="https://example.com"
                                         value={newUrl}
                                         onChange={e => setNewUrl(e.target.value)}
                                     />
                                 </div>
-                                <div className="flex justify-end gap-2">
+
+                                <div className="border-t pt-4 mt-4">
+                                    <details className="group">
+                                        <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-500 hover:text-black">
+                                            <span>Advanced Options (Mobile Deep Linking)</span>
+                                            <span className="transition group-open:rotate-180">▼</span>
+                                        </summary>
+                                        <div className="mt-4 space-y-4 pl-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">iOS Destination (Optional)</label>
+                                                <input
+                                                    type="url"
+                                                    name="ios_url"
+                                                    className="w-full p-2 border rounded-lg text-sm"
+                                                    placeholder="https://apps.apple.com/..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-1">Android Destination (Optional)</label>
+                                                <input
+                                                    type="url"
+                                                    name="android_url"
+                                                    className="w-full p-2 border rounded-lg text-sm"
+                                                    placeholder="https://play.google.com/..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-2">
                                     <button
                                         type="button"
                                         onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 hover:bg-gray-100 rounded-lg"
+                                        className="px-4 py-2 hover:bg-gray-100 rounded-lg text-sm"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 text-sm font-medium"
                                     >
                                         Create Link
                                     </button>

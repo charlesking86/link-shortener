@@ -9,8 +9,8 @@ export default {
                 return Response.redirect('https://link-shortener-evu.pages.dev', 301);
             }
 
-            // 2. Lookup Slug in Database
-            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&select=id,original`;
+            // 2. Lookup Slug in Database (Fetching extra columns now: android_url, ios_url)
+            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&select=id,original,android_url,ios_url`;
 
             const response = await fetch(supabaseUrl, {
                 headers: {
@@ -25,14 +25,26 @@ export default {
 
             const data = await response.json();
 
-            if (data && data.length > 0 && data[0].original) {
+            if (data && data.length > 0) {
                 const linkData = data[0];
+                let targetUrl = linkData.original;
 
-                // 3. FIRE AND FORGET - Analytics Tracking per click
-                // We pass the entire request object to extract IP, User Agent, Country, etc.
-                ctx.waitUntil(trackClickDetails(env, linkData.id, request));
+                // --- SMART REDIRECT LOGIC ---
+                const userAgent = request.headers.get('User-Agent') || '';
+                const isAndroid = /Android/i.test(userAgent);
+                const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
 
-                return Response.redirect(linkData.original, 301);
+                if (isAndroid && linkData.android_url) {
+                    targetUrl = linkData.android_url;
+                } else if (isIOS && linkData.ios_url) {
+                    targetUrl = linkData.ios_url;
+                }
+                // -----------------------------
+
+                // 3. Analytics Tracking (Fire and Forget)
+                ctx.waitUntil(trackClickDetails(env, linkData.id, request, targetUrl));
+
+                return Response.redirect(targetUrl, 301);
             }
 
             return new Response(`Link not found: ${slug}`, { status: 404 });
@@ -46,9 +58,8 @@ export default {
 /**
  * Captures detailed analytics for every click
  */
-async function trackClickDetails(env, linkId, request) {
+async function trackClickDetails(env, linkId, request, finalUrl) {
     try {
-        // Cloudflare exposes Geo and User properties on the request
         const country = request.cf?.country || 'Unknown';
         const city = request.cf?.city || 'Unknown';
         const region = request.cf?.region || 'Unknown';
@@ -56,9 +67,9 @@ async function trackClickDetails(env, linkId, request) {
         const referrer = request.headers.get('Referer') || '';
         const ip = request.headers.get('CF-Connecting-IP') || 'Unknown';
 
-        // Parse basic UA info (simple heuristic)
         let device = 'desktop';
-        if (userAgent.toLowerCase().includes('mobile')) device = 'mobile';
+        if (/mobile/i.test(userAgent)) device = 'mobile';
+        if (/tablet/i.test(userAgent)) device = 'tablet';
 
         const analyticsPayload = {
             link_id: linkId,
@@ -71,7 +82,6 @@ async function trackClickDetails(env, linkId, request) {
             ip: ip
         };
 
-        // Insert into 'click_events' table
         const rpcUrl = `${env.SUPABASE_URL}/rest/v1/click_events`;
         await fetch(rpcUrl, {
             method: 'POST',
@@ -79,13 +89,14 @@ async function trackClickDetails(env, linkId, request) {
                 'apikey': env.SUPABASE_ANON_KEY,
                 'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'return=minimal' // Don't need the response back, just save it
+                'Prefer': 'return=minimal'
             },
             body: JSON.stringify(analyticsPayload)
         });
 
-        // Also update the simple counter (legacy support)
+        // Legacy Counter Update
         const counterUrl = `${env.SUPABASE_URL}/rest/v1/rpc/increment_clicks`;
+        const slug = request.url.split('/').pop();
         await fetch(counterUrl, {
             method: 'POST',
             headers: {
@@ -93,7 +104,7 @@ async function trackClickDetails(env, linkId, request) {
                 'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ slug_input: request.url.split('/').pop() })
+            body: JSON.stringify({ slug_input: slug })
         });
 
     } catch (err) {
