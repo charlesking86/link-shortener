@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
-// Removed icons for debugging
+import { Link2, LayoutDashboard, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react'
 
 export default function Login() {
     const [loading, setLoading] = useState(false)
@@ -67,6 +67,9 @@ export default function Login() {
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black z-0"></div>
                 <div className="z-10 text-white p-12 max-w-lg">
                     <div className="flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black">
+                            <Link2 size={24} />
+                        </div>
                         <span className="text-2xl font-bold">Short.io Pro</span>
                     </div>
                     <h1 className="text-4xl font-bold mb-6">Manage your links with enterprise-grade analytics.</h1>
@@ -93,12 +96,13 @@ export default function Login() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <div className="relative">
+                                <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
                                 <input
                                     type="email"
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
                                     placeholder="name@company.com"
                                 />
                             </div>
@@ -107,12 +111,13 @@ export default function Login() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                             <div className="relative">
+                                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
                                 <input
                                     type="password"
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -123,7 +128,7 @@ export default function Login() {
                             disabled={loading}
                             className="w-full bg-black text-white py-2.5 rounded-lg hover:bg-gray-800 transition-colors font-medium flex items-center justify-center gap-2"
                         >
-                            {loading && <span>...</span>}
+                            {loading && <Loader2 size={18} className="animate-spin" />}
                             {isSignUp ? 'Sign Up' : 'Sign In'}
                         </button>
                     </form>
