@@ -11,7 +11,8 @@ export default {
 
             // 2. Lookup Slug + Domain in Database
             const hostname = url.hostname;
-            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&or=(domain.eq.${hostname},domain.is.null)&select=id,original,android_url,ios_url,password,expires_at`;
+            // Query with ALL new columns
+            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&or=(domain.eq.${hostname},domain.is.null)&select=id,original,android_url,ios_url,password,expires_at,geo_targets,social_tags,http_status`;
 
             const response = await fetch(supabaseUrl, {
                 headers: {
@@ -21,7 +22,10 @@ export default {
             });
 
             if (!response.ok) {
-                throw new Error(`DB Error ${response.status}: ${await response.text()}`);
+                // Determine if DB error or just 404
+                const text = await response.text();
+                // If 404/Empty array handled below, but if fetch failed:
+                // throw new Error(`DB Error ${response.status}: ${text}`);
             }
 
             const data = await response.json();
@@ -29,9 +33,7 @@ export default {
             if (data && data.length > 0) {
                 const linkData = data[0];
 
-                // --- SECURITY CHECKS ---
-
-                // A. Check Expiration
+                // --- 1. EXPIRATION CHECK ---
                 if (linkData.expires_at && new Date() > new Date(linkData.expires_at)) {
                     return new Response(`
                         <html>
@@ -46,7 +48,31 @@ export default {
                     `, { status: 410, headers: { 'Content-Type': 'text/html' } });
                 }
 
-                // B. Check Password
+                // --- 2. SOCIAL CARDS (BOTS) ---
+                const userAgent = request.headers.get('User-Agent') || '';
+                const isBot = /facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot/i.test(userAgent);
+
+                if (isBot && linkData.social_tags && (linkData.social_tags.title || linkData.social_tags.image)) {
+                    const { title, description, image } = linkData.social_tags;
+                    return new Response(`
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta property="og:title" content="${title || ''}" />
+                            <meta property="og:description" content="${description || ''}" />
+                            <meta property="og:image" content="${image || ''}" />
+                            <meta name="twitter:card" content="summary_large_image" />
+                            <meta name="twitter:title" content="${title || ''}" />
+                            <meta name="twitter:description" content="${description || ''}" />
+                            <meta name="twitter:image" content="${image || ''}" />
+                            <title>${title || 'Redirecting...'}</title>
+                        </head>
+                        <body></body>
+                        </html>
+                    `, { headers: { 'Content-Type': 'text/html' } });
+                }
+
+                // --- 3. PASSWORD PROTECTION ---
                 if (linkData.password) {
                     let authenticated = false;
 
@@ -56,7 +82,6 @@ export default {
                         if (inputPass === linkData.password) {
                             authenticated = true;
                         } else {
-                            // Incorrect Password - Re-render with error
                             return new Response(getPasswordPage(slug, true), { headers: { 'Content-Type': 'text/html' } });
                         }
                     }
@@ -66,22 +91,49 @@ export default {
                     }
                 }
 
-                // --- SMART REDIRECT LOGIC ---
+                // --- 4. TARGETING LOGIC (Start with Original) ---
                 let targetUrl = linkData.original;
-                const userAgent = request.headers.get('User-Agent') || '';
-                const isAndroid = /Android/i.test(userAgent);
-                const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+                const country = request.cf?.country; // e.g. "US"
 
-                if (isAndroid && linkData.android_url) {
-                    targetUrl = linkData.android_url;
-                } else if (isIOS && linkData.ios_url) {
-                    targetUrl = linkData.ios_url;
+                // A. Geo-Targeting
+                if (country && linkData.geo_targets && Array.isArray(linkData.geo_targets)) {
+                    const geoRule = linkData.geo_targets.find(r => r.country === country);
+                    if (geoRule && geoRule.url) {
+                        targetUrl = geoRule.url;
+                    }
                 }
 
-                // 3. Analytics Tracking (Fire and Forget)
+                // B. Device Targeting (Overrides Geo if set? OR Geo overrides Device? Let's say Geo > Device usually, but here Mobile App store links might be specific)
+                // Let's keep Mobile logic as fallback or priority? 
+                // Usually: Check Geo first. If no Geo, check Device.
+                // BUT: If I am in US and use iPhone, do I want US Link or iPhone Link?
+                // Logic: Detailed targeting. Let's apply Mobile Check *on top* of the targetUrl if needed, but currently Mobile is global.
+                // Simplest: Check Mobile Fields. If present, they override 'Original'.
+                // If Geo matched, we usually use that URL explicitly.
+                // Let's stick to: Geo > Mobile > Default.
+
+                // Wait, if I set a US-Specific URL, I probably want that for US users regardless of device.
+                // So if Geo matched, skip Mobile check? Or define Mobile per Geo? (Too complex).
+                // Current Logic: If Geo matched, use it. If NOT, check Mobile.
+
+                const geoMatched = (targetUrl !== linkData.original); // Did we change it?
+
+                if (!geoMatched) { // Only check Mobile if we haven't already redirected based on Country
+                    const isAndroid = /Android/i.test(userAgent);
+                    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
+
+                    if (isAndroid && linkData.android_url) {
+                        targetUrl = linkData.android_url;
+                    } else if (isIOS && linkData.ios_url) {
+                        targetUrl = linkData.ios_url;
+                    }
+                }
+
+                // 5. Analytics Tracking (Fire and Forget)
                 ctx.waitUntil(trackClickDetails(env, linkData.id, request, targetUrl));
 
-                return Response.redirect(targetUrl, 301);
+                // 6. Final Redirect
+                return Response.redirect(targetUrl, linkData.http_status || 301);
             }
 
             return new Response(`Link not found: ${slug}`, { status: 404 });

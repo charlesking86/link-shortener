@@ -26,6 +26,7 @@ export default function Dashboard() {
     const [showQRModal, setShowQRModal] = useState(false)
     const [qrData, setQrData] = useState({ url: '', slug: '' })
     const [showDomainMenu, setShowDomainMenu] = useState(false)
+    const [activeEditTab, setActiveEditTab] = useState('basic') // basic, mobile, geo, social, security
 
     // Form States
     const [formData, setFormData] = useState({
@@ -36,7 +37,9 @@ export default function Dashboard() {
         ios_url: '',
         android_url: '',
         password: '',
-        expires_at: ''
+        expires_at: '',
+        geo_targets: [],
+        social_tags: { title: '', description: '', image: '' }
     })
 
     // Domain State
@@ -119,6 +122,8 @@ export default function Dashboard() {
             android_url: formData.android_url || null,
             password: formData.password || null,
             expires_at: formData.expires_at || null,
+            geo_targets: formData.geo_targets,
+            social_tags: formData.social_tags,
             domain: currentDomain // Add domain to link
         }]).select()
 
@@ -145,7 +150,9 @@ export default function Dashboard() {
             ios_url: formData.ios_url || null,
             android_url: formData.android_url || null,
             password: formData.password || null,
-            expires_at: formData.expires_at || null
+            expires_at: formData.expires_at || null,
+            geo_targets: formData.geo_targets,
+            social_tags: formData.social_tags
         }).eq('id', selectedLink.id).select()
 
         if (data) {
@@ -171,8 +178,11 @@ export default function Dashboard() {
             ios_url: link.ios_url || '',
             android_url: link.android_url || '',
             password: link.password || '',
-            expires_at: link.expires_at ? link.expires_at.slice(0, 16) : '' // Format for datetime-local input
+            expires_at: link.expires_at ? link.expires_at.slice(0, 16) : '',
+            geo_targets: link.geo_targets || [],
+            social_tags: link.social_tags || { title: '', description: '', image: '' }
         })
+        setActiveEditTab('basic')
         setShowEditModal(true)
     }
 
@@ -200,8 +210,12 @@ export default function Dashboard() {
     }
 
     const resetForm = () => {
-        setFormData({ original: '', slug: '', title: '', tags: '', ios_url: '', android_url: '', password: '', expires_at: '' })
+        setFormData({
+            original: '', slug: '', title: '', tags: '', ios_url: '', android_url: '',
+            password: '', expires_at: '', geo_targets: [], social_tags: { title: '', description: '', image: '' }
+        })
         setSelectedLink(null)
+        setActiveEditTab('basic')
     }
 
     if (!user) return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -440,141 +454,150 @@ export default function Dashboard() {
                 </div>
             </main>
 
-            {/* CREATE/EDIT MODAL */}
+            {/* CREATE / EDIT MODAL (SIDEBAR LAYOUT) */}
             {(showCreateModal || showEditModal) && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-end z-50">
-                    <div className="w-full max-w-xl bg-white h-full shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold">{showEditModal ? 'Edit Link' : 'Create New Link'}</h2>
-                            <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); }} className="p-2 hover:bg-gray-100 rounded-full">✕</button>
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[600px] flex overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Sidebar */}
+                        <div className="w-64 bg-gray-50 border-r border-gray-100 flex flex-col">
+                            <div className="p-6 border-b border-gray-100">
+                                <h2 className="text-xl font-bold">{selectedLink ? 'Edit Link' : 'New Link'}</h2>
+                            </div>
+                            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                                <button onClick={() => setActiveEditTab('basic')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeEditTab === 'basic' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <Link2 size={16} /> Basic Link
+                                </button>
+                                <button onClick={() => setActiveEditTab('mobile')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeEditTab === 'mobile' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <Smartphone size={16} /> Mobile Targeting
+                                </button>
+                                <button onClick={() => setActiveEditTab('geo')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeEditTab === 'geo' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <Globe size={16} /> Geo-Targeting
+                                </button>
+                                <button onClick={() => setActiveEditTab('social')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeEditTab === 'social' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <Share2 size={16} /> Social Media
+                                </button>
+                                <button onClick={() => setActiveEditTab('security')} className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeEditTab === 'security' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <Lock size={16} /> Security
+                                </button>
+                            </nav>
                         </div>
 
-                        <form onSubmit={showEditModal ? handleUpdate : handleCreate} className="space-y-6">
+                        {/* Content Area */}
+                        <div className="flex-1 flex flex-col h-full">
+                            <div className="flex-1 p-8 overflow-y-auto">
+                                <form id="linkForm" onSubmit={selectedLink ? handleUpdate : handleCreate} className="space-y-6">
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Destination URL</label>
-                                <input
-                                    type="url" required
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                                    placeholder="https://example.com"
-                                    value={formData.original}
-                                    onChange={e => setFormData({ ...formData, original: e.target.value })}
-                                />
+                                    {/* BASIC TAB */}
+                                    {activeEditTab === 'basic' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Destination URL</label>
+                                                <input required type="url" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="https://example.com/very-long-url" value={formData.original} onChange={e => setFormData({ ...formData, original: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Title (Optional)</label>
+                                                <input type="text" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="My Awesome Link" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Custom Slug</label>
+                                                    <div className="flex items-center">
+                                                        <span className="bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg p-2.5 text-gray-500 text-sm overflow-hidden whitespace-nowrap max-w-[80px]">{currentDomain}/</span>
+                                                        <input type="text" className="w-full p-2.5 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="custom" value={formData.slug} onChange={e => setFormData({ ...formData, slug: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                                                    <input type="text" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="promo, social" value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* MOBILE TAB */}
+                                    {activeEditTab === 'mobile' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <p className="text-sm text-gray-500">Redirect users to different URLs based on their device.</p>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">iOS Destination</label>
+                                                <input type="url" className="w-full p-2.5 border border-gray-200 rounded-lg" placeholder="https://apps.apple.com/..." value={formData.ios_url} onChange={e => setFormData({ ...formData, ios_url: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Android Destination</label>
+                                                <input type="url" className="w-full p-2.5 border border-gray-200 rounded-lg" placeholder="https://play.google.com/..." value={formData.android_url} onChange={e => setFormData({ ...formData, android_url: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* GEO TAB */}
+                                    {activeEditTab === 'geo' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <p className="text-sm text-gray-500">Redirect users based on their country (Two-letter Code, e.g., US, IN, GB).</p>
+                                            {formData.geo_targets.map((rule, idx) => (
+                                                <div key={idx} className="flex gap-2">
+                                                    <input type="text" className="w-20 p-2 border border-gray-200 rounded-lg uppercase" placeholder="US" value={rule.country} onChange={e => {
+                                                        const newGeo = [...formData.geo_targets];
+                                                        newGeo[idx].country = e.target.value.toUpperCase();
+                                                        setFormData({ ...formData, geo_targets: newGeo });
+                                                    }} />
+                                                    <input type="url" className="flex-1 p-2 border border-gray-200 rounded-lg" placeholder="https://..." value={rule.url} onChange={e => {
+                                                        const newGeo = [...formData.geo_targets];
+                                                        newGeo[idx].url = e.target.value;
+                                                        setFormData({ ...formData, geo_targets: newGeo });
+                                                    }} />
+                                                    <button type="button" onClick={() => {
+                                                        const newGeo = formData.geo_targets.filter((_, i) => i !== idx);
+                                                        setFormData({ ...formData, geo_targets: newGeo });
+                                                    }} className="text-red-500 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={16} /></button>
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => setFormData({ ...formData, geo_targets: [...formData.geo_targets, { country: '', url: '' }] })} className="text-sm text-emerald-600 font-medium hover:underline">+ Add Country Rule</button>
+                                        </div>
+                                    )}
+
+                                    {/* SOCIAL TAB */}
+                                    {activeEditTab === 'social' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <p className="text-sm text-gray-500">Customize how your link looks on Facebook, Twitter, and LinkedIn.</p>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Social Title</label>
+                                                <input type="text" className="w-full p-2.5 border border-gray-200 rounded-lg" placeholder="Start your journey..." value={formData.social_tags?.title || ''} onChange={e => setFormData({ ...formData, social_tags: { ...formData.social_tags, title: e.target.value } })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Social Description</label>
+                                                <textarea className="w-full p-2.5 border border-gray-200 rounded-lg h-24" placeholder="Get the best deals on..." value={formData.social_tags?.description || ''} onChange={e => setFormData({ ...formData, social_tags: { ...formData.social_tags, description: e.target.value } })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Preview Image URL</label>
+                                                <input type="url" className="w-full p-2.5 border border-gray-200 rounded-lg" placeholder="https://..." value={formData.social_tags?.image || ''} onChange={e => setFormData({ ...formData, social_tags: { ...formData.social_tags, image: e.target.value } })} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* SECURITY TAB */}
+                                    {activeEditTab === 'security' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <p className="text-sm text-gray-500">Protect your links from unwanted access.</p>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Password Protection</label>
+                                                <input type="text" className="w-full p-2.5 border border-gray-200 rounded-lg" placeholder="Optional password..." value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                                                <input type="datetime-local" className="w-full p-2.5 border border-gray-200 rounded-lg" value={formData.expires_at} onChange={e => setFormData({ ...formData, expires_at: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </form>
                             </div>
-
-                            {!showEditModal && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Custom Slug (Optional)</label>
-                                    <div className="flex items-center">
-                                        <span className="bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg p-2.5 text-gray-500 text-sm">gobd.site/</span>
-                                        <input
-                                            type="text"
-                                            className="w-full p-2.5 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                                            placeholder="custom-name"
-                                            value={formData.slug}
-                                            onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Link Title</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                                    placeholder="My Awesome Link"
-                                    value={formData.title}
-                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
-                                <div className="relative">
-                                    <Tag className="absolute left-3 top-3 text-gray-400" size={16} />
-                                    <input
-                                        type="text"
-                                        className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                                        placeholder="marketing, social, q1"
-                                        value={formData.tags}
-                                        onChange={e => setFormData({ ...formData, tags: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-100">
-                                <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-                                    <Smartphone size={16} /> Mobile Targeting
-                                </h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">iOS Destination</label>
-                                        <input
-                                            type="url"
-                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
-                                            placeholder="https://apps.apple.com/..."
-                                            value={formData.ios_url}
-                                            onChange={e => setFormData({ ...formData, ios_url: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Android Destination</label>
-                                        <input
-                                            type="url"
-                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
-                                            placeholder="https://play.google.com/..."
-                                            value={formData.android_url}
-                                            onChange={e => setFormData({ ...formData, android_url: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-100">
-                                <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-                                    <Lock size={16} /> Security & Expiration
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Password Protection</label>
-                                        <input
-                                            type="text"
-                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
-                                            placeholder="Optional password..."
-                                            value={formData.password}
-                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Expiration Date</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
-                                            value={formData.expires_at}
-                                            onChange={e => setFormData({ ...formData, expires_at: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-6 flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowCreateModal(false); setShowEditModal(false); }}
-                                    className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium shadow-sm"
-                                >
-                                    {showEditModal ? 'Save Changes' : 'Create Link'}
+                            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-br-xl">
+                                <button type="button" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }} className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-colors">Cancel</button>
+                                <button type="submit" form="linkForm" className="px-5 py-2.5 bg-black hover:bg-gray-800 text-white rounded-lg font-medium shadow-lg shadow-gray-200 transition-colors flex items-center gap-2">
+                                    {selectedLink ? 'Save Changes' : 'Create Link'}
                                 </button>
                             </div>
-
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}
