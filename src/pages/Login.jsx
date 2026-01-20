@@ -70,7 +70,7 @@ export default function Login() {
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black">
                             <Link2 size={24} />
                         </div>
-                        <span className="text-2xl font-bold">Short.io Pro</span>
+                        <span className="text-2xl font-bold">LCM Marketing</span>
                     </div>
                     <h1 className="text-4xl font-bold mb-6">Manage your links with enterprise-grade analytics.</h1>
                     <p className="text-gray-400 text-lg leading-relaxed">
@@ -84,7 +84,7 @@ export default function Login() {
                 <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex items-center gap-2 mb-8 lg:hidden">
                         <div className="w-8 h-8 bg-black rounded-lg"></div>
-                        <span className="text-xl font-bold">Short.io Pro</span>
+                        <span className="text-xl font-bold">LCM Marketing</span>
                     </div>
 
                     <h2 className="text-2xl font-bold mb-2">{isSignUp ? 'Create an account' : 'Welcome back'}</h2>

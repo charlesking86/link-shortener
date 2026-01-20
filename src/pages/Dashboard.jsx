@@ -144,7 +144,7 @@ export default function Dashboard() {
                 <div className="p-6">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-black rounded-lg"></div>
-                        <span className="font-bold text-lg">Short.io</span>
+                        <span className="font-bold text-lg">LCM Marketing</span>
                     </div>
                 </div>
 
@@ -309,7 +309,7 @@ export default function Dashboard() {
 
                     {/* ANALYTICS TAB */}
                     {activeTab === 'Analytics' && (
-                        <AnalyticsView events={events} />
+                        <AnalyticsView events={events} totalLinks={links.length} />
                     )}
 
                     {/* SETTINGS TAB */}
@@ -461,8 +461,8 @@ function ActionButton({ icon, onClick, tooltip, danger }) {
             onClick={onClick}
             title={tooltip}
             className={`p-2 rounded-lg transition-colors ${danger
-                    ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                    : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
                 }`}
         >
             {icon}
