@@ -250,23 +250,25 @@ export default function Dashboard() {
                                 <ChevronDown size={14} className="text-gray-400" />
                             </button>
                             {/* Dropdown Content */}
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-lg shadow-lg hidden group-hover:block z-50">
-                                {domains.map(d => (
-                                    <button
-                                        key={d.domain}
-                                        onClick={() => setCurrentDomain(d.domain)}
-                                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700"
-                                    >
-                                        {d.domain}
-                                    </button>
-                                ))}
-                                <div className="border-t border-gray-100 p-2">
-                                    <button
-                                        onClick={() => setShowDomainModal(true)}
-                                        className="w-full flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 py-1.5 rounded-md hover:bg-emerald-100"
-                                    >
-                                        <Plus size={12} /> Add Domain
-                                    </button>
+                            <div className="absolute top-full left-0 pt-2 w-48 hidden group-hover:block z-50">
+                                <div className="bg-white border border-gray-100 rounded-lg shadow-lg">
+                                    {domains.map(d => (
+                                        <button
+                                            key={d.domain}
+                                            onClick={() => setCurrentDomain(d.domain)}
+                                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 first:rounded-t-lg"
+                                        >
+                                            {d.domain}
+                                        </button>
+                                    ))}
+                                    <div className="border-t border-gray-100 p-2">
+                                        <button
+                                            onClick={() => setShowDomainModal(true)}
+                                            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 py-1.5 rounded-md hover:bg-emerald-100"
+                                        >
+                                            <Plus size={12} /> Add Domain
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
