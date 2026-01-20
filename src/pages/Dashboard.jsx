@@ -5,7 +5,7 @@ import {
     Link2, Plus, Users, BarChart3, Settings, ExternalLink,
     Search, Filter, FileSpreadsheet, ChevronDown, MoreHorizontal,
     Pencil, Trash2, Share2, Copy, BarChart2, FolderPlus, Globe,
-    Smartphone, Lock, Tag
+    Smartphone, Lock, Tag, QrCode, Download
 } from 'lucide-react'
 import AnalyticsView from '../components/AnalyticsView'
 import { format } from 'date-fns'
@@ -21,7 +21,10 @@ export default function Dashboard() {
     // Modal States
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
+
     const [selectedLink, setSelectedLink] = useState(null) // For editing
+    const [showQRModal, setShowQRModal] = useState(false)
+    const [qrData, setQrData] = useState({ url: '', slug: '' })
 
     // Form States
     const [formData, setFormData] = useState({
@@ -161,6 +164,29 @@ export default function Dashboard() {
             android_url: link.android_url || ''
         })
         setShowEditModal(true)
+    }
+
+    const openQR = (link) => {
+        const fullUrl = `https://${link.domain || 'gobd.site'}/${link.slug}`
+        setQrData({ url: fullUrl, slug: link.slug })
+        setShowQRModal(true)
+    }
+
+    const downloadQR = async () => {
+        try {
+            const imageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData.url)}`
+            const response = await fetch(imageUrl)
+            const blob = await response.blob()
+            const link = document.createElement('a')
+            link.href = window.URL.createObjectURL(blob)
+            link.download = `${qrData.slug}-qr.png`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+        } catch (err) {
+            console.error('Download failed', err)
+            alert('Could not download QR code.')
+        }
     }
 
     const resetForm = () => {
@@ -511,6 +537,39 @@ export default function Dashboard() {
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setShowDomainModal(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">Cancel</button>
                             <button onClick={handleAddDomain} className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">Add Domain</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* QR CODE MODAL */}
+            {showQRModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200 text-center">
+                        <h2 className="text-lg font-bold mb-2">QR Code</h2>
+                        <p className="text-sm text-gray-500 mb-6 break-all">{qrData.url}</p>
+
+                        <div className="bg-white p-4 rounded-lg border border-gray-100 inline-block mb-6 shadow-inner">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData.url)}`}
+                                alt="QR Code"
+                                className="w-48 h-48"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowQRModal(false)}
+                                className="flex-1 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={downloadQR}
+                                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium flex items-center justify-center gap-2"
+                            >
+                                <Download size={18} />
+                                Download
+                            </button>
                         </div>
                     </div>
                 </div>
