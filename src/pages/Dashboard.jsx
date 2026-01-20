@@ -25,6 +25,7 @@ export default function Dashboard() {
     const [selectedLink, setSelectedLink] = useState(null) // For editing
     const [showQRModal, setShowQRModal] = useState(false)
     const [qrData, setQrData] = useState({ url: '', slug: '' })
+    const [showDomainMenu, setShowDomainMenu] = useState(false)
 
     // Form States
     const [formData, setFormData] = useState({
@@ -243,34 +244,52 @@ export default function Dashboard() {
                 <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-20">
                     <div className="flex items-center gap-4">
                         {/* Domain Selector */}
-                        <div className="relative group">
-                            <button className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black">
-                                <Globe size={16} className="text-gray-400" />
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowDomainMenu(!showDomainMenu)}
+                                className={`flex items-center gap-2 text-sm font-medium hover:text-black transition-colors ${showDomainMenu ? 'text-black' : 'text-gray-700'}`}
+                            >
+                                <Globe size={16} className={showDomainMenu ? "text-emerald-500" : "text-gray-400"} />
                                 <span>{currentDomain}</span>
-                                <ChevronDown size={14} className="text-gray-400" />
+                                <ChevronDown size={14} className={`text-gray-400 transition-transform ${showDomainMenu ? 'rotate-180' : ''}`} />
                             </button>
+
+                            {/* Backdrop to close menu when clicking outside */}
+                            {showDomainMenu && (
+                                <div className="fixed inset-0 z-40" onClick={() => setShowDomainMenu(false)}></div>
+                            )}
+
                             {/* Dropdown Content */}
-                            <div className="absolute top-full left-0 pt-2 w-48 hidden group-hover:block z-50">
-                                <div className="bg-white border border-gray-100 rounded-lg shadow-lg">
-                                    {domains.map(d => (
-                                        <button
-                                            key={d.domain}
-                                            onClick={() => setCurrentDomain(d.domain)}
-                                            className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700 first:rounded-t-lg"
-                                        >
-                                            {d.domain}
-                                        </button>
-                                    ))}
-                                    <div className="border-t border-gray-100 p-2">
-                                        <button
-                                            onClick={() => setShowDomainModal(true)}
-                                            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 py-1.5 rounded-md hover:bg-emerald-100"
-                                        >
-                                            <Plus size={12} /> Add Domain
-                                        </button>
+                            {showDomainMenu && (
+                                <div className="absolute top-full left-0 mt-2 w-48 z-50 animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="bg-white border border-gray-100 rounded-lg shadow-xl shadow-gray-200/50 overflow-hidden">
+                                        {domains.map(d => (
+                                            <button
+                                                key={d.domain}
+                                                onClick={() => {
+                                                    setCurrentDomain(d.domain)
+                                                    setShowDomainMenu(false)
+                                                }}
+                                                className={`block w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${currentDomain === d.domain ? 'text-emerald-600 bg-emerald-50/50 font-medium' : 'text-gray-700'}`}
+                                            >
+                                                {d.domain}
+                                                {currentDomain === d.domain && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
+                                            </button>
+                                        ))}
+                                        <div className="border-t border-gray-100 p-2 bg-gray-50/50">
+                                            <button
+                                                onClick={() => {
+                                                    setShowDomainModal(true)
+                                                    setShowDomainMenu(false)
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 bg-white border border-gray-200 py-2 rounded-md hover:bg-emerald-50 transition-colors hover:border-emerald-200"
+                                            >
+                                                <Plus size={12} /> Add Domain
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 
