@@ -33,7 +33,9 @@ export default function Dashboard() {
         title: '',
         tags: '',
         ios_url: '',
-        android_url: ''
+        android_url: '',
+        password: '',
+        expires_at: ''
     })
 
     // Domain State
@@ -114,6 +116,8 @@ export default function Dashboard() {
             tags: tagsArray,
             ios_url: formData.ios_url || null,
             android_url: formData.android_url || null,
+            password: formData.password || null,
+            expires_at: formData.expires_at || null,
             domain: currentDomain // Add domain to link
         }]).select()
 
@@ -134,10 +138,13 @@ export default function Dashboard() {
 
         const { data, error } = await supabase.from('links').update({
             original: formData.original,
+            slug: formData.slug,
             title: formData.title,
             tags: tagsArray,
-            ios_url: formData.ios_url,
-            android_url: formData.android_url
+            ios_url: formData.ios_url || null,
+            android_url: formData.android_url || null,
+            password: formData.password || null,
+            expires_at: formData.expires_at || null
         }).eq('id', selectedLink.id).select()
 
         if (data) {
@@ -161,7 +168,9 @@ export default function Dashboard() {
             title: link.title || '',
             tags: link.tags ? link.tags.join(', ') : '',
             ios_url: link.ios_url || '',
-            android_url: link.android_url || ''
+            android_url: link.android_url || '',
+            password: link.password || '',
+            expires_at: link.expires_at ? link.expires_at.slice(0, 16) : '' // Format for datetime-local input
         })
         setShowEditModal(true)
     }
@@ -190,7 +199,7 @@ export default function Dashboard() {
     }
 
     const resetForm = () => {
-        setFormData({ original: '', slug: '', title: '', tags: '', ios_url: '', android_url: '' })
+        setFormData({ original: '', slug: '', title: '', tags: '', ios_url: '', android_url: '', password: '', expires_at: '' })
         setSelectedLink(null)
     }
 
@@ -496,6 +505,33 @@ export default function Dashboard() {
                                             placeholder="https://play.google.com/..."
                                             value={formData.android_url}
                                             onChange={e => setFormData({ ...formData, android_url: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100">
+                                <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                                    <Lock size={16} /> Security & Expiration
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Password Protection</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
+                                            placeholder="Optional password..."
+                                            value={formData.password}
+                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Expiration Date</label>
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
+                                            value={formData.expires_at}
+                                            onChange={e => setFormData({ ...formData, expires_at: e.target.value })}
                                         />
                                     </div>
                                 </div>
