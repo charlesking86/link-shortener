@@ -1,0 +1,31 @@
+
+> link-shortener@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 28 modules transformed.
+[31m✗[39m Build failed in 965ms
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 1 error:
+C:/Users/USER/OneDrive - lcmediaagency/Documents/Google Antigravity/Skills Master/link-shortener/src/components/AnalyticsView.jsx:72:15: ERROR: Unexpected "{"[31m
+file: [36mC:/Users/USER/OneDrive - lcmediaagency/Documents/Google Antigravity/Skills Master/link-shortener/src/components/AnalyticsView.jsx:72:15[31m
+[33m
+[33mUnexpected "{"[33m
+70 |              </div>
+71 |          )
+72 |          import { Calendar, ArrowUp, MousePointer2, Globe, Smartphone, Monitor } from 'lucide-react'
+   |                 ^
+73 |          import { format, subDays, isAfter, startOfDay, parseISO } from 'date-fns'
+74 |  
+[31m
+    at failureErrorWithLog (C:\Users\USER\OneDrive - lcmediaagency\Documents\Google Antigravity\Skills Master\link-shortener\node_modules\esbuild\lib\main.js:1467:15)
+    at C:\Users\USER\OneDrive - lcmediaagency\Documents\Google Antigravity\Skills Master\link-shortener\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> (C:\Users\USER\OneDrive - lcmediaagency\Documents\Google Antigravity\Skills Master\link-shortener\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (C:\Users\USER\OneDrive - lcmediaagency\Documents\Google Antigravity\Skills Master\link-shortener\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (C:\Users\USER\OneDrive - lcmediaagency\Documents\Google Antigravity\Skills Master\link-shortener\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m
