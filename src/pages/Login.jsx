@@ -67,14 +67,14 @@ export default function Login() {
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black z-0"></div>
                 <div className="z-10 text-white p-12 max-w-lg">
                     <div className="flex items-center gap-3 mb-8">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black">
-                            <Link2 size={24} />
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden">
+                            <img src="/logo.jpg" alt="LCM Logo" className="w-10 h-10 object-contain" />
                         </div>
-                        <span className="text-2xl font-bold">LCM Marketing</span>
+                        <span className="text-2xl font-bold">LCM Global Solution</span>
                     </div>
-                    <h1 className="text-4xl font-bold mb-6">Manage your links with enterprise-grade analytics.</h1>
+                    <h1 className="text-4xl font-bold mb-6">Connect Globally,<br />Track Locally</h1>
                     <p className="text-gray-400 text-lg leading-relaxed">
-                        Track clicks, gather geo-data, and optimize your marketing campaigns with our powerful link management platform.
+                        Intelligent Link Management for the modern enterprise. Shorten, track, and optimize your global reach.
                     </p>
                 </div>
             </div>
@@ -83,8 +83,10 @@ export default function Login() {
             <div className="flex-1 flex items-center justify-center p-8">
                 <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex items-center gap-2 mb-8 lg:hidden">
-                        <div className="w-8 h-8 bg-black rounded-lg"></div>
-                        <span className="text-xl font-bold">LCM Marketing</span>
+                        <div className="w-10 h-10 bg-black rounded-lg overflow-hidden">
+                            <img src="/logo.jpg" alt="LCM Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <span className="text-xl font-bold">LCM Global Solution</span>
                     </div>
 
                     <h2 className="text-2xl font-bold mb-2">{isSignUp ? 'Create an account' : 'Welcome back'}</h2>
