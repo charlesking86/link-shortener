@@ -24,47 +24,138 @@ export default function Login() {
         return () => subscription.unsubscribe()
     }, [])
 
-    const handleLogin = async (e) => {
+    const handleAuth = async (e) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
         setMessage(null)
 
-        const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-                emailRedirectTo: `${window.location.origin}/login`
+        if (isSignUp) {
+            // Sign Up
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            })
+            if (error) {
+                setError(error.message)
+            } else {
+                setMessage("Account created! You can now log in (check email for verification if enforced).")
+                setIsSignUp(false) // Switch to login mode
             }
-        })
-
-        if (error) {
-            setError(error.message)
         } else {
-            setMessage('Check your email for the login link!')
+            // Sign In
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
+            if (error) {
+                setError(error.message)
+            } else {
+                navigate('/dashboard')
+            }
         }
         setLoading(false)
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-sm">
-                <h1 className="text-2xl font-bold mb-6 text-center">Login to Shortener</h1>
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <input
-                        type="email"
-                        placeholder="Your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full p-2 border rounded"
-                        required
-                    />
-                    <button disabled={loading} className="w-full bg-primary text-white p-2 rounded hover:bg-gray-800 disabled:opacity-50">
-                        {loading ? 'Sending...' : 'Send Magic Link'}
-                    </button>
+        <div className="flex min-h-screen bg-gray-50">
+            {/* Left Side - Design */}
+            <div className="hidden lg:flex w-1/2 bg-black items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black z-0"></div>
+                <div className="z-10 text-white p-12 max-w-lg">
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black">
+                            <Link2 size={24} />
+                        </div>
+                        <span className="text-2xl font-bold">Short.io Pro</span>
+                    </div>
+                    <h1 className="text-4xl font-bold mb-6">Manage your links with enterprise-grade analytics.</h1>
+                    <p className="text-gray-400 text-lg leading-relaxed">
+                        Track clicks, gather geo-data, and optimize your marketing campaigns with our powerful link management platform.
+                    </p>
+                </div>
+            </div>
 
-                    {error && <div className="text-red-500 text-sm text-center mt-2 p-2 bg-red-50 rounded border border-red-200">{error}</div>}
-                    {message && <div className="text-green-600 text-sm text-center mt-2 p-2 bg-green-50 rounded border border-green-200">{message}</div>}
-                </form>
+            {/* Right Side - Form */}
+            <div className="flex-1 flex items-center justify-center p-8">
+                <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-2 mb-8 lg:hidden">
+                        <div className="w-8 h-8 bg-black rounded-lg"></div>
+                        <span className="text-xl font-bold">Short.io Pro</span>
+                    </div>
+
+                    <h2 className="text-2xl font-bold mb-2">{isSignUp ? 'Create an account' : 'Welcome back'}</h2>
+                    <p className="text-gray-500 mb-8">
+                        {isSignUp ? 'Start your free trial today.' : 'Enter your details to access your dashboard.'}
+                    </p>
+
+                    <form onSubmit={handleAuth} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
+                                    placeholder="name@company.com"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+                                <input
+                                    type="password"
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:outline-none transition-all"
+                                    placeholder="••••••••"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-black text-white py-2.5 rounded-lg hover:bg-gray-800 transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                            {loading && <Loader2 size={18} className="animate-spin" />}
+                            {isSignUp ? 'Sign Up' : 'Sign In'}
+                        </button>
+                    </form>
+
+                    {error && (
+                        <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center gap-2">
+                            Alert: {error}
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="mt-4 p-3 bg-green-50 text-green-600 text-sm rounded-lg border border-green-100">
+                            {message}
+                        </div>
+                    )}
+
+                    <div className="mt-6 text-center text-sm text-gray-500">
+                        {isSignUp ? "Already have an account?" : "Don't have an account?"}
+                        <button
+                            onClick={() => {
+                                setIsSignUp(!isSignUp)
+                                setError(null)
+                                setMessage(null)
+                            }}
+                            className="ml-2 font-medium text-black hover:underline"
+                        >
+                            {isSignUp ? 'Log in' : 'Sign up'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     )
