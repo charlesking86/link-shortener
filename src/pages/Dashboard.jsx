@@ -33,6 +33,12 @@ export default function Dashboard() {
         android_url: ''
     })
 
+    // Domain State
+    const [domains, setDomains] = useState([{ domain: 'gobd.site' }])
+    const [currentDomain, setCurrentDomain] = useState('gobd.site')
+    const [showDomainModal, setShowDomainModal] = useState(false)
+    const [newDomainInput, setNewDomainInput] = useState('')
+
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (!session) navigate('/login')
@@ -46,7 +52,7 @@ export default function Dashboard() {
     const fetchData = async (userId) => {
         setLoading(true)
 
-        // 1. Fetch Links with new columns
+        // 1. Fetch Links
         const { data: linksData } = await supabase
             .from('links')
             .select('*')
@@ -60,10 +66,36 @@ export default function Dashboard() {
             .from('click_events')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(2000) // Increased limit for better stats
+            .limit(2000)
 
         setEvents(eventsData || [])
+
+        // 3. Fetch Domains
+        const { data: domainData } = await supabase
+            .from('domains')
+            .select('*')
+            .eq('user_id', userId)
+
+        if (domainData && domainData.length > 0) {
+            setDomains([{ domain: 'gobd.site' }, ...domainData])
+        }
+
         setLoading(false)
+    }
+
+    const handleAddDomain = async () => {
+        if (!newDomainInput) return
+        const { data, error } = await supabase.from('domains').insert([{
+            domain: newDomainInput,
+            user_id: user.id
+        }]).select()
+
+        if (data) {
+            setDomains([...domains, data[0]])
+            setCurrentDomain(data[0].domain)
+            setShowDomainModal(false)
+            setNewDomainInput('')
+        }
     }
 
     const handleCreate = async (e) => {
@@ -78,7 +110,8 @@ export default function Dashboard() {
             title: formData.title || new URL(formData.original).hostname,
             tags: tagsArray,
             ios_url: formData.ios_url || null,
-            android_url: formData.android_url || null
+            android_url: formData.android_url || null,
+            domain: currentDomain // Add domain to link
         }]).select()
 
         if (data) {
@@ -178,9 +211,29 @@ export default function Dashboard() {
                         <div className="relative group">
                             <button className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black">
                                 <Globe size={16} className="text-gray-400" />
-                                <span>gobd.site</span>
+                                <span>{currentDomain}</span>
                                 <ChevronDown size={14} className="text-gray-400" />
                             </button>
+                            {/* Dropdown Content */}
+                            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-lg shadow-lg hidden group-hover:block z-50">
+                                {domains.map(d => (
+                                    <button
+                                        key={d.domain}
+                                        onClick={() => setCurrentDomain(d.domain)}
+                                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700"
+                                    >
+                                        {d.domain}
+                                    </button>
+                                ))}
+                                <div className="border-t border-gray-100 p-2">
+                                    <button
+                                        onClick={() => setShowDomainModal(true)}
+                                        className="w-full flex items-center justify-center gap-2 text-xs font-medium text-emerald-600 bg-emerald-50 py-1.5 rounded-md hover:bg-emerald-100"
+                                    >
+                                        <Plus size={12} /> Add Domain
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -201,7 +254,7 @@ export default function Dashboard() {
                             {/* Toolbar */}
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-2xl font-bold text-gray-900">Links for domain</h1>
+                                    <h1 className="text-2xl font-bold text-gray-900">Links for {currentDomain}</h1>
                                     <button onClick={() => fetchData(user.id)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><Share2 size={14} className="rotate-180" /></button>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -238,64 +291,66 @@ export default function Dashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                        {links.map(link => (
-                                            <tr key={link.id} className="group hover:bg-gray-50 transition-colors">
-                                                <td className="p-4 align-top"><input type="checkbox" className="rounded text-emerald-500 focus:ring-emerald-500" /></td>
-                                                <td className="p-4 align-top">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
-                                                            {user.email[0].toUpperCase()}
+                                        {links
+                                            .filter(l => (l.domain === currentDomain) || (!l.domain && currentDomain === 'gobd.site'))
+                                            .map(link => (
+                                                <tr key={link.id} className="group hover:bg-gray-50 transition-colors">
+                                                    <td className="p-4 align-top"><input type="checkbox" className="rounded text-emerald-500 focus:ring-emerald-500" /></td>
+                                                    <td className="p-4 align-top">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                                                {user.email[0].toUpperCase()}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">{format(new Date(link.created_at), 'MMM dd, yyyy')}</div>
                                                         </div>
-                                                        <div className="text-xs text-gray-500">{format(new Date(link.created_at), 'MMM dd, yyyy')}</div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 align-top">
-                                                    <div className="flex items-center gap-2">
-                                                        <Globe size={14} className="text-gray-400" />
-                                                        <a href={`https://gobd.site/${link.slug}`} target="_blank" className="text-sm font-medium text-emerald-600 hover:underline">
-                                                            gobd.site/{link.slug}
-                                                        </a>
-                                                        <button
-                                                            onClick={() => navigator.clipboard.writeText(`https://gobd.site/${link.slug}`)}
-                                                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-900"
-                                                        >
-                                                            <Copy size={12} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 align-top">
-                                                    <div className="max-w-md">
-                                                        <div className="text-sm font-medium text-gray-900 truncate" title={link.title}>{link.title || 'Untitled Link'}</div>
-                                                        <div className="text-xs text-gray-400 truncate mt-0.5">{link.original}</div>
-                                                        {/* Badges for Mobile */}
-                                                        <div className="flex gap-2 mt-1">
-                                                            {link.android_url && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded flex items-center gap-1"><Smartphone size={8} /> Android</span>}
-                                                            {link.ios_url && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1"><Smartphone size={8} /> iOS</span>}
+                                                    </td>
+                                                    <td className="p-4 align-top">
+                                                        <div className="flex items-center gap-2">
+                                                            <Globe size={14} className="text-gray-400" />
+                                                            <a href={`https://${link.domain || 'gobd.site'}/${link.slug}`} target="_blank" className="text-sm font-medium text-emerald-600 hover:underline">
+                                                                {link.domain || 'gobd.site'}/{link.slug}
+                                                            </a>
+                                                            <button
+                                                                onClick={() => navigator.clipboard.writeText(`https://${link.domain || 'gobd.site'}/${link.slug}`)}
+                                                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-900"
+                                                            >
+                                                                <Copy size={12} />
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 align-top text-right">
-                                                    <span className="font-medium text-gray-900">{link.clicks}</span>
-                                                </td>
-                                                <td className="p-4 align-top">
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {link.tags && link.tags.map((tag, i) => (
-                                                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                                <Tag size={10} className="mr-1 opacity-50" /> {tag}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 align-top text-right">
-                                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <ActionButton icon={<Pencil size={14} />} onClick={() => openEditModal(link)} tooltip="Edit" />
-                                                        <ActionButton icon={<BarChart2 size={14} />} onClick={() => setActiveTab('Analytics')} tooltip="Stats" />
-                                                        <ActionButton icon={<Share2 size={14} />} tooltip="Share" />
-                                                        <ActionButton icon={<Trash2 size={14} />} onClick={() => handleDelete(link.id)} tooltip="Delete" danger />
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                    <td className="p-4 align-top">
+                                                        <div className="max-w-md">
+                                                            <div className="text-sm font-medium text-gray-900 truncate" title={link.title}>{link.title || 'Untitled Link'}</div>
+                                                            <div className="text-xs text-gray-400 truncate mt-0.5">{link.original}</div>
+                                                            {/* Badges for Mobile */}
+                                                            <div className="flex gap-2 mt-1">
+                                                                {link.android_url && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded flex items-center gap-1"><Smartphone size={8} /> Android</span>}
+                                                                {link.ios_url && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1"><Smartphone size={8} /> iOS</span>}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 align-top text-right">
+                                                        <span className="font-medium text-gray-900">{link.clicks}</span>
+                                                    </td>
+                                                    <td className="p-4 align-top">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {link.tags && link.tags.map((tag, i) => (
+                                                                <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                                    <Tag size={10} className="mr-1 opacity-50" /> {tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 align-top text-right">
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <ActionButton icon={<Pencil size={14} />} onClick={() => openEditModal(link)} tooltip="Edit" />
+                                                            <ActionButton icon={<BarChart2 size={14} />} onClick={() => setActiveTab('Analytics')} tooltip="Stats" />
+                                                            <ActionButton icon={<Share2 size={14} />} tooltip="Share" />
+                                                            <ActionButton icon={<Trash2 size={14} />} onClick={() => handleDelete(link.id)} tooltip="Delete" danger />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
                                         {links.length === 0 && (
                                             <tr>
                                                 <td colSpan="7" className="p-12 text-center text-gray-500">
@@ -437,6 +492,26 @@ export default function Dashboard() {
                             </div>
 
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* ADD DOMAIN MODAL */}
+            {showDomainModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <h2 className="text-lg font-bold mb-4">Add Custom Domain</h2>
+                        <p className="text-xs text-gray-500 mb-4">Make sure to configure your DNS to point to this project first.</p>
+                        <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500 outline-none"
+                            placeholder="example.com"
+                            value={newDomainInput}
+                            onChange={e => setNewDomainInput(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setShowDomainModal(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">Cancel</button>
+                            <button onClick={handleAddDomain} className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">Add Domain</button>
+                        </div>
                     </div>
                 </div>
             )}
