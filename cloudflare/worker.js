@@ -9,8 +9,11 @@ export default {
                 return Response.redirect('https://link-shortener-evu.pages.dev', 301);
             }
 
-            // 2. Lookup Slug in Database (Fetching extra columns now: android_url, ios_url)
-            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&select=id,original,android_url,ios_url`;
+            // 2. Lookup Slug + Domain in Database
+            const hostname = url.hostname;
+            // Query for specific domain OR null domain (legacy)
+            // Syntax: slug=eq.slug & (domain=eq.hostname or domain=is.null)
+            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&or=(domain.eq.${hostname},domain.is.null)&select=id,original,android_url,ios_url`;
 
             const response = await fetch(supabaseUrl, {
                 headers: {
@@ -94,18 +97,9 @@ async function trackClickDetails(env, linkId, request, finalUrl) {
             body: JSON.stringify(analyticsPayload)
         });
 
-        // Legacy Counter Update
-        const counterUrl = `${env.SUPABASE_URL}/rest/v1/rpc/increment_clicks`;
-        const slug = request.url.split('/').pop();
-        await fetch(counterUrl, {
-            method: 'POST',
-            headers: {
-                'apikey': env.SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ slug_input: slug })
-        });
+        // Legacy Counter Update (Disabled for Multi-Domain safety)
+        // const counterUrl = `${env.SUPABASE_URL}/rest/v1/rpc/increment_clicks`;
+        // ... (Disabled)
 
     } catch (err) {
         console.error("Tracking Error:", err);
