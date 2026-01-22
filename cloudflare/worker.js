@@ -12,7 +12,7 @@ export default {
             // 2. Lookup Slug + Domain in Database
             const hostname = url.hostname;
             // Query with ALL new columns
-            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&or=(domain.eq.${hostname},domain.is.null)&select=id,original,android_url,ios_url,password,expires_at,geo_targets,social_tags,http_status`;
+            const supabaseUrl = `${env.SUPABASE_URL}/rest/v1/links?slug=eq.${slug}&or=(domain.eq.${hostname},domain.is.null)&select=id,original,android_url,ios_url,password,expires_at,geo_targets,social_tags,http_status,cloaking,tracking_ids,ab_test_config,click_limit`;
 
             const response = await fetch(supabaseUrl, {
                 headers: {
@@ -22,10 +22,7 @@ export default {
             });
 
             if (!response.ok) {
-                // Determine if DB error or just 404
-                const text = await response.text();
-                // If 404/Empty array handled below, but if fetch failed:
-                // throw new Error(`DB Error ${response.status}: ${text}`);
+                // DB Error or 404
             }
 
             const data = await response.json();
@@ -91,34 +88,31 @@ export default {
                     }
                 }
 
-                // --- 4. TARGETING LOGIC (Start with Original) ---
+                // --- 4. TARGET ALGORITHM ---
                 let targetUrl = linkData.original;
-                const country = request.cf?.country; // e.g. "US"
 
-                // A. Geo-Targeting
+                // A. A/B Testing
+                if (linkData.ab_test_config && linkData.ab_test_config.variation) {
+                    // split is % for Original Page. Default 50.
+                    const split = parseInt(linkData.ab_test_config.split || 50);
+                    if (Math.random() * 100 > split) {
+                        targetUrl = linkData.ab_test_config.variation;
+                    }
+                }
+
+                // B. Geo-Targeting
+                const country = request.cf?.country;
+                let geoMatched = false;
                 if (country && linkData.geo_targets && Array.isArray(linkData.geo_targets)) {
                     const geoRule = linkData.geo_targets.find(r => r.country === country);
                     if (geoRule && geoRule.url) {
                         targetUrl = geoRule.url;
+                        geoMatched = true;
                     }
                 }
 
-                // B. Device Targeting (Overrides Geo if set? OR Geo overrides Device? Let's say Geo > Device usually, but here Mobile App store links might be specific)
-                // Let's keep Mobile logic as fallback or priority? 
-                // Usually: Check Geo first. If no Geo, check Device.
-                // BUT: If I am in US and use iPhone, do I want US Link or iPhone Link?
-                // Logic: Detailed targeting. Let's apply Mobile Check *on top* of the targetUrl if needed, but currently Mobile is global.
-                // Simplest: Check Mobile Fields. If present, they override 'Original'.
-                // If Geo matched, we usually use that URL explicitly.
-                // Let's stick to: Geo > Mobile > Default.
-
-                // Wait, if I set a US-Specific URL, I probably want that for US users regardless of device.
-                // So if Geo matched, skip Mobile check? Or define Mobile per Geo? (Too complex).
-                // Current Logic: If Geo matched, use it. If NOT, check Mobile.
-
-                const geoMatched = (targetUrl !== linkData.original); // Did we change it?
-
-                if (!geoMatched) { // Only check Mobile if we haven't already redirected based on Country
+                // C. Mobile Targeting (If Geo didn't match)
+                if (!geoMatched) {
                     const isAndroid = /Android/i.test(userAgent);
                     const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
 
@@ -129,10 +123,20 @@ export default {
                     }
                 }
 
-                // 5. Analytics Tracking (Fire and Forget)
+                // --- 5. ANALYTICS (Fire and Forget) ---
                 ctx.waitUntil(trackClickDetails(env, linkData.id, request, targetUrl));
 
-                // 6. Final Redirect
+                // --- 6. CLOAKING & TRACKING ---
+                const hasTracking = linkData.tracking_ids && (linkData.tracking_ids.ga4 || linkData.tracking_ids.fb_pixel || linkData.tracking_ids.adroll);
+                const isCloaked = linkData.cloaking;
+
+                if (isCloaked || hasTracking) {
+                    return new Response(getWrapperPage(targetUrl, linkData, isCloaked, hasTracking), {
+                        headers: { 'Content-Type': 'text/html' }
+                    });
+                }
+
+                // --- 7. STANDARD REDIRECT ---
                 return Response.redirect(targetUrl, linkData.http_status || 301);
             }
 
@@ -179,6 +183,87 @@ function getPasswordPage(slug, error) {
     </body>
     </html>
     `
+}
+
+function getWrapperPage(targetUrl, linkData, isCloaked, hasTracking) {
+    const { tracking_ids, social_tags } = linkData;
+    const title = social_tags?.title || 'Redirecting...';
+
+    let scripts = '';
+    if (tracking_ids?.ga4) {
+        scripts += `
+            <!-- Google Analytics -->
+            <script async src="https://www.googletagmanager.com/gtag/js?id=${tracking_ids.ga4}"></script>
+            <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${tracking_ids.ga4}');
+            </script>
+        `;
+    }
+    if (tracking_ids?.fb_pixel) {
+        scripts += `
+            <!-- Facebook Pixel -->
+            <script>
+                !function(f,b,e,v,n,t,s)
+                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                n.queue=[];t=b.createElement(e);t.async=!0;
+                t.src=v;s=b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t,s)}(window, document,'script',
+                'https://connect.facebook.net/en_US/fbevents.js');
+                fbq('init', '${tracking_ids.fb_pixel}');
+                fbq('track', 'PageView');
+            </script>
+        `;
+    }
+
+    if (isCloaked) {
+        // Full Iframe Cloaking
+        return `
+            <!DOCTYPE html>
+            <html lang="en" style="height:100%;overflow:hidden;">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${title}</title>
+                ${scripts}
+                <style>body,html,iframe{margin:0;padding:0;height:100%;width:100%;border:none;}</style>
+            </head>
+            <body>
+                <iframe src="${targetUrl}" allowfullscreen></iframe>
+            </body>
+            </html>
+        `;
+    } else {
+        // Redirect Interstitial with Pixels
+        return `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${title}</title>
+                ${scripts}
+                <script>
+                    setTimeout(function() {
+                        window.location.href = "${targetUrl}";
+                    }, 800); // 800ms delay to allow pixels to fire
+                </script>
+                <style>
+                    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb; color: #6b7280; }
+                    .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #34d399; width: 24px; height: 24px; animation: spin 1s linear infinite; margin-right: 12px; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            </head>
+            <body>
+                <div class="loader"></div> Redirecting...
+            </body>
+            </html>
+        `;
+    }
 }
 
 async function trackClickDetails(env, linkId, request, finalUrl) {
