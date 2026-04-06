@@ -144,6 +144,24 @@ export default function Dashboard() {
         }
     }
 
+    const handleDeleteDomain = async (e, domainObj) => {
+        e.stopPropagation();
+        if (domainObj.domain === 'gobd.site') return;
+        if (!window.confirm(`Are you sure you want to remove ${domainObj.domain}?`)) return;
+
+        const { error } = await supabase.from('domains').delete().eq('id', domainObj.id);
+        if (!error) {
+            setDomains(domains.filter(d => d.id !== domainObj.id));
+            if (currentDomain === domainObj.domain) {
+                setCurrentDomain('gobd.site');
+            }
+            setShowDomainMenu(false);
+        } else {
+            console.error('Failed to delete domain:', error);
+            alert('Failed to delete domain.');
+        }
+    }
+
     const handleCreate = async (e) => {
         e.preventDefault()
         const slug = formData.slug || Math.random().toString(36).substring(7)
@@ -330,17 +348,32 @@ export default function Dashboard() {
                                 <div className="absolute top-full left-0 mt-2 w-48 z-50 animate-in fade-in zoom-in-95 duration-100">
                                     <div className="bg-white border border-gray-100 rounded-lg shadow-xl shadow-gray-200/50 overflow-hidden">
                                         {domains.map(d => (
-                                            <button
+                                            <div
                                                 key={d.domain}
-                                                onClick={() => {
-                                                    setCurrentDomain(d.domain)
-                                                    setShowDomainMenu(false)
-                                                }}
-                                                className={`block w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${currentDomain === d.domain ? 'text-emerald-600 bg-emerald-50/50 font-medium' : 'text-gray-700'}`}
+                                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${currentDomain === d.domain ? 'text-emerald-600 bg-emerald-50/50 font-medium' : 'text-gray-700'}`}
                                             >
-                                                {d.domain}
-                                                {currentDomain === d.domain && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
-                                            </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setCurrentDomain(d.domain)
+                                                        setShowDomainMenu(false)
+                                                    }}
+                                                    className="flex-1 text-left"
+                                                >
+                                                    {d.domain}
+                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    {d.domain !== 'gobd.site' && (
+                                                        <button 
+                                                            onClick={(e) => handleDeleteDomain(e, d)}
+                                                            className="text-gray-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                                                            title="Delete Domain"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                    {currentDomain === d.domain && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>}
+                                                </div>
+                                            </div>
                                         ))}
                                         <div className="border-t border-gray-100 p-2 bg-gray-50/50">
                                             <button
