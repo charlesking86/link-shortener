@@ -49,11 +49,12 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('Links')
 
-    // Teams & Workspaces
     const [teams, setTeams] = useState([])
     const [activeWorkspace, setActiveWorkspace] = useState(null) // null = personal
     const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
     const [newTeamName, setNewTeamName] = useState('')
+    const [editingTeamId, setEditingTeamId] = useState(null)
+    const [editingTeamName, setEditingTeamName] = useState('')
 
     // Modal States
     const [showCreateModal, setShowCreateModal] = useState(false)
@@ -202,6 +203,34 @@ export default function Dashboard() {
         } catch (err) {
             console.error("Team Creation Error:", err)
             alert("Failed to create team: " + err.message)
+        }
+    }
+
+    const handleUpdateTeamName = async (teamId) => {
+        if (!editingTeamName) return;
+        const { error } = await supabase.from('teams').update({ name: editingTeamName }).eq('id', teamId);
+        if (!error) {
+            setTeams(teams.map(t => t.id === teamId ? { ...t, name: editingTeamName } : t));
+            if (activeWorkspace?.id === teamId) {
+                setActiveWorkspace({ ...activeWorkspace, name: editingTeamName });
+            }
+            setEditingTeamId(null);
+        } else {
+            alert('Failed to update team: ' + error.message);
+        }
+    }
+
+    const handleDeleteTeam = async (team) => {
+        if (!window.confirm(`Are you sure you want to delete the team "${team.name}"? This cannot be undone.`)) return;
+        
+        const { error } = await supabase.from('teams').delete().eq('id', team.id);
+        if (!error) {
+            setTeams(teams.filter(t => t.id !== team.id));
+            if (activeWorkspace?.id === team.id) {
+                setActiveWorkspace(null); // Switch back to personal
+            }
+        } else {
+            alert('Failed to delete team: ' + error.message);
         }
     }
 
@@ -645,9 +674,33 @@ export default function Dashboard() {
                                     {activeWorkspace === null && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
                                 </div>
                                 {teams.map(team => (
-                                    <div key={team.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                                    <div key={team.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                                         <div>
-                                            <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                                            {editingTeamId === team.id ? (
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <input 
+                                                        className="border border-emerald-500 rounded px-2 py-1 text-sm outline-none" 
+                                                        value={editingTeamName} 
+                                                        onChange={e => setEditingTeamName(e.target.value)} 
+                                                        autoFocus
+                                                    />
+                                                    <button onClick={() => handleUpdateTeamName(team.id)} className="text-emerald-600 text-sm font-medium">Save</button>
+                                                    <button onClick={() => setEditingTeamId(null)} className="text-gray-500 text-sm">Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                                                    {team.owner_id === user.id && (
+                                                        <button 
+                                                            onClick={() => { setEditingTeamId(team.id); setEditingTeamName(team.name); }} 
+                                                            className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
+                                                            title="Edit Team Name"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                             <p className="text-xs text-gray-500">Created: {format(new Date(team.created_at), 'MMM dd, yyyy')}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -658,10 +711,19 @@ export default function Dashboard() {
                                                     navigator.clipboard.writeText(inviteLink);
                                                     alert('Invite link copied to clipboard: ' + inviteLink);
                                                 }}
-                                                className="text-sm text-emerald-600 hover:underline flex items-center gap-1"
+                                                className="text-sm text-emerald-600 hover:underline flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-md font-medium"
                                             >
-                                                <Share2 size={14} /> Invite Link
+                                                <Share2 size={14} /> Invite
                                             </button>
+                                            {team.owner_id === user.id && (
+                                                <button 
+                                                    onClick={() => handleDeleteTeam(team)} 
+                                                    className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors ml-1"
+                                                    title="Delete Team"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
