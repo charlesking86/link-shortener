@@ -150,18 +150,35 @@ export default function Dashboard() {
     }
 
     const handleCreateTeam = async (e) => {
-        e.preventDefault()
+        if (e && e.preventDefault) e.preventDefault()
         if (!newTeamName) return
-        const { data, error } = await supabase.from('teams').insert([{
-            name: newTeamName,
-            owner_id: user.id
-        }]).select()
         
-        if (data) {
-            setTeams([...teams, data[0]])
-            setActiveWorkspace(data[0])
-            setShowCreateTeamModal(false)
-            setNewTeamName('')
+        try {
+            const { data, error } = await supabase.from('teams').insert([{
+                name: newTeamName,
+                owner_id: user.id
+            }]).select()
+            
+            if (error) throw error
+
+            if (data && data.length > 0) {
+                const newTeam = data[0]
+                
+                // Also add them as owner in team_members
+                await supabase.from('team_members').insert([{
+                    team_id: newTeam.id,
+                    user_id: user.id,
+                    role: 'owner'
+                }])
+
+                setTeams([...teams, newTeam])
+                setActiveWorkspace(newTeam)
+                setShowCreateTeamModal(false)
+                setNewTeamName('')
+            }
+        } catch (err) {
+            console.error("Team Creation Error:", err)
+            alert("Failed to create team: " + err.message)
         }
     }
 
