@@ -49,6 +49,12 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('Links')
 
+    // Teams & Workspaces
+    const [teams, setTeams] = useState([])
+    const [activeWorkspace, setActiveWorkspace] = useState(null) // null = personal
+    const [showCreateTeamModal, setShowCreateTeamModal] = useState(false)
+    const [newTeamName, setNewTeamName] = useState('')
+
     // Modal States
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
@@ -90,50 +96,81 @@ export default function Dashboard() {
             if (!session) navigate('/login')
             else {
                 setUser(session.user)
-                fetchData(session.user.id)
+                fetchInitialData()
             }
         })
     }, [])
 
+    useEffect(() => {
+        if (user) {
+            fetchData(user.id)
+        }
+    }, [user, activeWorkspace])
+
+    const fetchInitialData = async () => {
+        const { data: teamsData } = await supabase.from('teams').select('*')
+        setTeams(teamsData || [])
+    }
+
     const fetchData = async (userId) => {
         setLoading(true)
 
-        // 1. Fetch Links
-        const { data: linksData } = await supabase
-            .from('links')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
+        let linkQuery = supabase.from('links').select('*').order('created_at', { ascending: false })
+        let domainQuery = supabase.from('domains').select('*')
 
-        setLinks(linksData || [])
-
-        // 2. Fetch Events
-        const { data: eventsData } = await supabase
-            .from('click_events')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(2000)
-
-        setEvents(eventsData || [])
-
-        // 3. Fetch Domains
-        const { data: domainData } = await supabase
-            .from('domains')
-            .select('*')
-            .eq('user_id', userId)
-
-        if (domainData && domainData.length > 0) {
-            setDomains([{ domain: 'gobd.site' }, ...domainData])
+        if (activeWorkspace) {
+            linkQuery = linkQuery.eq('team_id', activeWorkspace.id)
+            domainQuery = domainQuery.eq('team_id', activeWorkspace.id)
+        } else {
+            linkQuery = linkQuery.is('team_id', null).eq('user_id', userId)
+            domainQuery = domainQuery.is('team_id', null).eq('user_id', userId)
         }
 
+        const [{ data: linksData }, { data: domainData }, { data: eventsData }] = await Promise.all([
+            linkQuery,
+            domainQuery,
+            supabase.from('click_events').select('*').order('created_at', { ascending: false }).limit(2000)
+        ])
+
+        setLinks(linksData || [])
+        
+        const baseDomain = { domain: 'gobd.site' }
+        if (domainData && domainData.length > 0) {
+            setDomains([baseDomain, ...domainData])
+            if (!domainData.find(d => d.domain === currentDomain) && currentDomain !== 'gobd.site') {
+                setCurrentDomain('gobd.site')
+            }
+        } else {
+            setDomains([baseDomain])
+            setCurrentDomain('gobd.site')
+        }
+
+        setEvents(eventsData || [])
         setLoading(false)
+    }
+
+    const handleCreateTeam = async (e) => {
+        e.preventDefault()
+        if (!newTeamName) return
+        const { data, error } = await supabase.from('teams').insert([{
+            name: newTeamName,
+            owner_id: user.id
+        }]).select()
+        
+        if (data) {
+            setTeams([...teams, data[0]])
+            setActiveWorkspace(data[0])
+            setShowCreateTeamModal(false)
+            setNewTeamName('')
+        }
     }
 
     const handleAddDomain = async () => {
         if (!newDomainInput) return
         const { data, error } = await supabase.from('domains').insert([{
             domain: newDomainInput,
-            user_id: user.id
+            user_id: user.id,
+            team_id: activeWorkspace ? activeWorkspace.id : null
         }]).select()
 
         if (data) {
@@ -184,7 +221,8 @@ export default function Dashboard() {
             cloaking: formData.cloaking,
             tracking_ids: formData.tracking_ids,
             ab_test_config: formData.ab_test_config,
-            click_limit: formData.click_limit ? parseInt(formData.click_limit) : null
+            click_limit: formData.click_limit ? parseInt(formData.click_limit) : null,
+            team_id: activeWorkspace ? activeWorkspace.id : null
         }]).select()
 
         if (data) {
@@ -306,10 +344,27 @@ export default function Dashboard() {
                 <nav className="flex-1 px-3 space-y-1">
                     <SidebarItem icon={<Link2 size={18} />} label="Links" active={activeTab === 'Links'} onClick={() => setActiveTab('Links')} />
                     <SidebarItem icon={<BarChart3 size={18} />} label="Analytics" active={activeTab === 'Analytics'} onClick={() => setActiveTab('Analytics')} />
+                    <SidebarItem icon={<Users size={18} />} label="Team Members" active={activeTab === 'Teams'} onClick={() => setActiveTab('Teams')} />
                     <SidebarItem icon={<Settings size={18} />} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
+                    <div className="mb-4">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Workspace</label>
+                        <select 
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={activeWorkspace ? activeWorkspace.id : 'personal'}
+                            onChange={(e) => {
+                                if (e.target.value === 'personal') setActiveWorkspace(null)
+                                else setActiveWorkspace(teams.find(t => t.id === e.target.value))
+                            }}
+                        >
+                            <option value="personal">Personal Workspace</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
                             {user.email[0].toUpperCase()}
@@ -523,6 +578,46 @@ export default function Dashboard() {
                     {/* ANALYTICS TAB */}
                     {activeTab === 'Analytics' && (
                         <AnalyticsView events={events} totalLinks={links.length} />
+                    )}
+
+                    {/* TEAMS TAB */}
+                    {activeTab === 'Teams' && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-2xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h2 className="text-xl font-bold mb-1">Team Workspaces</h2>
+                                    <p className="text-sm text-gray-500">Create teams to share links and domains with colleagues.</p>
+                                </div>
+                                <button 
+                                    onClick={() => setShowCreateTeamModal(true)}
+                                    className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors flex items-center gap-2"
+                                >
+                                    <Plus size={16} /> New Team
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between bg-gray-50">
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">Personal Workspace</h3>
+                                        <p className="text-xs text-gray-500">Your private links and domains</p>
+                                    </div>
+                                    {activeWorkspace === null && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
+                                </div>
+                                {teams.map(team => (
+                                    <div key={team.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                                            <p className="text-xs text-gray-500">Created: {format(new Date(team.created_at), 'MMM dd, yyyy')}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {activeWorkspace?.id === team.id && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
+                                            <button className="text-sm text-emerald-600 hover:underline">Manage Members</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {/* SETTINGS TAB */}
@@ -937,6 +1032,29 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
+
+            {/* ADD TEAM MODAL */}
+            {
+                showCreateTeamModal && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                            <h2 className="text-lg font-bold mb-4">Create New Team</h2>
+                            <p className="text-xs text-gray-500 mb-4">You will be the owner of this team workspace.</p>
+                            <input
+                                type="text"
+                                className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                placeholder="e.g. Sales Team"
+                                value={newTeamName}
+                                onChange={e => setNewTeamName(e.target.value)}
+                            />
+                            <div className="flex gap-2 justify-end">
+                                <button onClick={() => setShowCreateTeamModal(false)} className="px-4 py-2 hover:bg-gray-100 rounded text-sm text-gray-700">Cancel</button>
+                                <button onClick={handleCreateTeam} className="bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-emerald-600">Create</button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* ADD DOMAIN MODAL */}
             {
