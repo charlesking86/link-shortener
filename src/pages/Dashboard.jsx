@@ -96,10 +96,33 @@ export default function Dashboard() {
             if (!session) navigate('/login')
             else {
                 setUser(session.user)
-                fetchInitialData()
+                handlePossibleInvite(session.user.id).then(() => {
+                    fetchInitialData()
+                })
             }
         })
     }, [])
+
+    const handlePossibleInvite = async (userId) => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const joinTeam = urlParams.get('join_team')
+        if (joinTeam) {
+            const { error } = await supabase.from('team_members').insert([{
+                team_id: joinTeam,
+                user_id: userId,
+                role: 'viewer' // They join as viewer by default
+            }])
+            if (!error) {
+                alert("Welcome! You have successfully joined the team!")
+            } else if (error.code !== '23505') { // Ignore unique violation if they are already in the team
+               alert("Attempted to join team, but: " + error.message)
+            }
+            // Clear URL parameter securely without reloading
+            const url = new URL(window.location)
+            url.searchParams.delete('join_team')
+            window.history.replaceState({}, '', url)
+        }
+    }
 
     useEffect(() => {
         if (user) {
@@ -629,7 +652,16 @@ export default function Dashboard() {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             {activeWorkspace?.id === team.id && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
-                                            <button className="text-sm text-emerald-600 hover:underline">Manage Members</button>
+                                            <button 
+                                                onClick={() => {
+                                                    const inviteLink = `${window.location.origin}/dashboard?join_team=${team.id}`;
+                                                    navigator.clipboard.writeText(inviteLink);
+                                                    alert('Invite link copied to clipboard: ' + inviteLink);
+                                                }}
+                                                className="text-sm text-emerald-600 hover:underline flex items-center gap-1"
+                                            >
+                                                <Share2 size={14} /> Invite Link
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
