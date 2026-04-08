@@ -56,6 +56,11 @@ export default function Dashboard() {
     const [editingTeamId, setEditingTeamId] = useState(null)
     const [editingTeamName, setEditingTeamName] = useState('')
 
+    // Team Management View State
+    const [managingTeam, setManagingTeam] = useState(null)
+    const [teamMembersList, setTeamMembersList] = useState([])
+    const [teamManagementTab, setTeamManagementTab] = useState('Members')
+
     // Modal States
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
@@ -133,7 +138,16 @@ export default function Dashboard() {
 
     const fetchInitialData = async () => {
         const { data: teamsData } = await supabase.from('teams').select('*')
-        setTeams(teamsData || [])
+        const { data: membersData } = await supabase.from('team_members').select('team_id')
+        
+        const counts = {}
+        if (membersData) {
+            membersData.forEach(m => {
+                counts[m.team_id] = (counts[m.team_id] || 0) + 1
+            })
+        }
+        
+        setTeams((teamsData || []).map(t => ({ ...t, memberCount: counts[t.id] || 1 })))
     }
 
     const fetchData = async (userId) => {
@@ -204,6 +218,16 @@ export default function Dashboard() {
             console.error("Team Creation Error:", err)
             alert("Failed to create team: " + err.message)
         }
+    }
+    const fetchTeamMembers = async (teamId) => {
+        const { data } = await supabase.from('team_members').select('*').eq('team_id', teamId)
+        setTeamMembersList(data || [])
+    }
+
+    const openManageTeam = (team) => {
+        setManagingTeam(team)
+        setTeamManagementTab('Members')
+        fetchTeamMembers(team.id)
     }
 
     const handleUpdateTeamName = async (teamId) => {
@@ -650,84 +674,241 @@ export default function Dashboard() {
                     )}
 
                     {/* TEAMS TAB */}
-                    {activeTab === 'Teams' && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-2xl">
-                            <div className="flex items-center justify-between mb-6">
+                    {activeTab === 'Teams' && !managingTeam && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-5xl animate-in fade-in duration-300">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                                 <div>
-                                    <h2 className="text-xl font-bold mb-1">Team Workspaces</h2>
-                                    <p className="text-sm text-gray-500">Create teams to share links and domains with colleagues.</p>
+                                    <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Teams</h2>
                                 </div>
                                 <button 
                                     onClick={() => setShowCreateTeamModal(true)}
-                                    className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors flex items-center gap-2"
+                                    className="bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold tracking-wide hover:bg-emerald-600 transition-colors shadow-sm focus:ring-4 focus:ring-emerald-100"
                                 >
-                                    <Plus size={16} /> New Team
+                                    CREATE TEAM
                                 </button>
                             </div>
+                            
+                            <p className="text-sm text-gray-500 mb-8 pb-4 border-b border-gray-100">
+                                List of teams you are a member of
+                            </p>
 
-                            <div className="space-y-4">
-                                <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {/* Personal Workspace Card */}
+                                <div 
+                                    className={`border ${activeWorkspace === null ? 'border-emerald-400 ring-1 ring-emerald-400 bg-emerald-50/20' : 'border-gray-200'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-40 bg-white group relative`}
+                                    onClick={() => setActiveWorkspace(null)}
+                                >
                                     <div>
-                                        <h3 className="font-semibold text-gray-900">Personal Workspace</h3>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="font-bold text-gray-900 truncate pr-4 text-base">Personal Workspace</h3>
+                                        </div>
                                         <p className="text-xs text-gray-500">Your private links and domains</p>
                                     </div>
-                                    {activeWorkspace === null && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
-                                </div>
-                                {teams.map(team => (
-                                    <div key={team.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                        <div>
-                                            {editingTeamId === team.id ? (
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <input 
-                                                        className="border border-emerald-500 rounded px-2 py-1 text-sm outline-none" 
-                                                        value={editingTeamName} 
-                                                        onChange={e => setEditingTeamName(e.target.value)} 
-                                                        autoFocus
-                                                    />
-                                                    <button onClick={() => handleUpdateTeamName(team.id)} className="text-emerald-600 text-sm font-medium">Save</button>
-                                                    <button onClick={() => setEditingTeamId(null)} className="text-gray-500 text-sm">Cancel</button>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="font-semibold text-gray-900">{team.name}</h3>
-                                                    {team.owner_id === user.id && (
-                                                        <button 
-                                                            onClick={() => { setEditingTeamId(team.id); setEditingTeamName(team.name); }} 
-                                                            className="text-gray-400 hover:text-gray-600 p-1 rounded-md"
-                                                            title="Edit Team Name"
-                                                        >
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            <p className="text-xs text-gray-500">Created: {format(new Date(team.created_at), 'MMM dd, yyyy')}</p>
+                                    <div className="flex items-center justify-between mt-4 pb-1">
+                                        <Globe size={18} className="text-gray-300" />
+                                        <div className="flex items-center">
+                                            <div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold border-[3px] border-white shadow-sm relative z-10 uppercase">
+                                                {user.email[0]}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            {activeWorkspace?.id === team.id && <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Active</span>}
+                                    </div>
+                                </div>
+
+                                {/* Team Cards */}
+                                {teams.map(team => (
+                                    <div 
+                                        key={team.id} 
+                                        className={`border ${activeWorkspace?.id === team.id ? 'border-emerald-400 ring-1 ring-emerald-400 bg-emerald-50/20' : 'border-gray-200'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40 bg-white group relative`}
+                                        onClick={() => />* Placeholder, let's change openManageTeam target  * /}
+                                    >
+                                        {/* TOP ACTION BAR ON HOVER */}
+                                        <div className="absolute top-2 right-2 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 backdrop-blur-sm rounded-lg p-1 shadow border border-gray-100 gap-1 z-20">
                                             <button 
-                                                onClick={() => {
-                                                    const inviteLink = `${window.location.origin}/dashboard?join_team=${team.id}`;
-                                                    navigator.clipboard.writeText(inviteLink);
-                                                    alert('Invite link copied to clipboard: ' + inviteLink);
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    const inviteLink = `${window.location.origin}/dashboard?join_team=${team.id}`; 
+                                                    navigator.clipboard.writeText(inviteLink); 
+                                                    alert('Invite link copied: ' + inviteLink); 
                                                 }}
-                                                className="text-sm text-emerald-600 hover:underline flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-md font-medium"
+                                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors" title="Copy Invite Link"
                                             >
-                                                <Share2 size={14} /> Invite
+                                                <Share2 size={16} />
                                             </button>
+                                            <button onClick={(e) => { e.stopPropagation(); openManageTeam(team); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Manage Team"><Settings size={16} /></button>
                                             {team.owner_id === user.id && (
-                                                <button 
-                                                    onClick={() => handleDeleteTeam(team)} 
-                                                    className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors ml-1"
-                                                    title="Delete Team"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <>
+                                                    <button onClick={(e) => { e.stopPropagation(); setEditingTeamId(team.id); setEditingTeamName(team.name); }} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors" title="Rename"><Pencil size={16} /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Delete"><Trash2 size={16} /></button>
+                                                </>
                                             )}
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-start justify-between mb-2 gap-2 relative">
+                                                {editingTeamId === team.id ? (
+                                                    <div className="absolute left-0 mt-[-4px] z-30 flex items-center bg-white shadow-xl border border-gray-200 rounded-lg p-2 gap-2 w-48">
+                                                        <input 
+                                                            className="flex-1 border border-gray-300 focus:border-emerald-500 rounded px-2 py-1 text-sm outline-none" 
+                                                            value={editingTeamName} 
+                                                            onChange={e => setEditingTeamName(e.target.value)} 
+                                                            onClick={e => e.stopPropagation()}
+                                                            onBlur={() => handleUpdateTeamName(team.id)}
+                                                            onKeyDown={e => e.key === 'Enter' && handleUpdateTeamName(team.id)}
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <h3 className="font-bold text-gray-900 truncate pr-6 text-base">{team.name}</h3>
+                                                )}
+                                                <span className="bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 text-[10px] uppercase font-bold px-2 py-0.5 rounded flex-shrink-0">
+                                                    {team.owner_id === user.id ? 'Owner' : 'Member'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between mt-4 text-gray-400 pb-1">
+                                            <Globe size={18} className="text-gray-300" />
+                                            <div className="flex items-center -space-x-2">
+                                                {/* Avatars */}
+                                                <div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold border-[3px] border-white shadow-sm relative z-30 uppercase">
+                                                    {team.name[0]}
+                                                </div>
+                                                {team.memberCount > 1 && (
+                                                    <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold border-[3px] border-white shadow-sm relative z-20">
+                                                        ?
+                                                    </div>
+                                                )}
+                                                {team.memberCount > 2 && (
+                                                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-bold border-[3px] border-white shadow-sm relative z-10">
+                                                        +{team.memberCount - 2}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* TEAM MANAGEMENT INNER VIEW */}
+                    {activeTab === 'Teams' && managingTeam && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-6xl animate-in fade-in duration-300">
+                             {/* Header Navigation */}
+                             <div className="mb-6 flex items-center justify-between">
+                                 <button onClick={() => setManagingTeam(null)} className="text-sm font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 hover:underline">
+                                    &larr; Back to Teams
+                                 </button>
+                                 <div className="flex gap-2">
+                                    {managingTeam.owner_id === user.id && (
+                                        <button className="px-3 py-1.5 border border-emerald-200 text-emerald-700 rounded text-xs font-bold uppercase hover:bg-emerald-50 flex items-center gap-1">
+                                            <Pencil size={12}/> Rename
+                                        </button>
+                                    )}
+                                    <button className="px-3 py-1.5 border border-red-200 text-red-600 rounded text-xs font-bold uppercase hover:bg-red-50 flex items-center gap-1">
+                                        <Trash2 size={12}/> Delete
+                                    </button>
+                                 </div>
+                             </div>
+
+                             <div className="flex flex-col md:flex-row gap-6 items-start">
+                                {/* Left Navigation Sidebar */}
+                                <div className="w-full md:w-64 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col sticky top-4">
+                                    <div className="p-4 bg-gray-50 border-b border-gray-200">
+                                        <p className="text-[11px] text-gray-500 uppercase font-black tracking-wider mb-2">Team management</p>
+                                        <div className="font-bold text-gray-900 flex items-center justify-between bg-white border border-gray-200 rounded p-2 cursor-pointer shadow-sm">
+                                            <span className="truncate pr-2">{managingTeam.name}</span>
+                                            <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+                                        </div>
+                                    </div>
+                                    <div className="p-2 flex flex-col gap-1">
+                                        <button onClick={() => setTeamManagementTab('Members')} className={`p-3 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Members' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                            <Users size={16} /> Members
+                                        </button>
+                                        <button onClick={() => setTeamManagementTab('Domains')} className={`p-3 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Domains' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                            <Globe size={16} /> Domains
+                                        </button>
+                                        <button className="p-3 flex items-center gap-3 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50">
+                                            <Server size={16} /> SAML config
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Main Inner Content */}
+                                <div className="flex-1 border border-gray-200 rounded-xl p-8 min-h-[500px] w-full shadow-sm bg-white">
+                                    {teamManagementTab === 'Members' && (
+                                        <div className="animate-in fade-in duration-200">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pb-4 border-b border-gray-100 gap-4">
+                                                <h3 className="text-xl font-medium text-gray-800">Members</h3>
+                                                <button 
+                                                    onClick={() => {
+                                                        const inviteLink = `${window.location.origin}/dashboard?join_team=${managingTeam.id}`;
+                                                        navigator.clipboard.writeText(inviteLink);
+                                                        alert('Invite link copied: ' + inviteLink);
+                                                    }}
+                                                    className="text-emerald-600 font-bold text-sm tracking-widest hover:text-emerald-700 uppercase"
+                                                >
+                                                    Add New Member
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {teamMembersList.map((member) => (
+                                                    <div key={member.id} className="border border-gray-200 rounded-xl p-5 bg-white relative hover:shadow-md transition-shadow flex flex-col justify-between">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="w-10 h-10 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold text-lg flex-shrink-0 uppercase shadow-sm">
+                                                                {member.user_email ? member.user_email[0] : 'U'}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="font-semibold text-gray-900 truncate">
+                                                                        {member.user_email ? member.user_email.split('@')[0] : 'Unknown'}
+                                                                    </span>
+                                                                    {member.user_id === user.id && (
+                                                                        <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                                                                            It's you
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className={`text-[11px] font-bold tracking-wide uppercase ${member.role === 'owner' ? 'text-emerald-500' : 'text-blue-500'}`}>
+                                                                    {member.role || 'Member'}
+                                                                </div>
+                                                            </div>
+                                                            <button className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0">
+                                                                <MoreHorizontal size={16} />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="mt-5 pt-3 border-t border-gray-50 flex flex-col gap-1.5">
+                                                            <div className="text-xs text-gray-500 truncate">
+                                                                {member.user_email || 'Run SQL sync script to view'}
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs text-gray-400">
+                                                                <span>Added on {format(new Date(member.added_at || member.created_at || Date.now()), 'MMM dd, yyyy')}</span>
+                                                                <div className="flex items-center gap-1 text-emerald-500">
+                                                                    <Lock size={12} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {teamMembersList.length === 0 && (
+                                                <div className="text-center py-10 text-gray-400">
+                                                    Loading members...
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {teamManagementTab === 'Domains' && (
+                                        <div className="text-center py-20 text-gray-500 animate-in fade-in duration-200">
+                                            Domain management for this team will appear here in the future.
+                                        </div>
+                                    )}
+                                </div>
+                             </div>
                         </div>
                     )}
 
