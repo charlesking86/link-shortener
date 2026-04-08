@@ -5,7 +5,7 @@ import {
     Link2, Plus, Users, BarChart3, Settings, ExternalLink,
     Search, Filter, FileSpreadsheet, ChevronDown, MoreHorizontal,
     Pencil, Trash2, Share2, Copy, BarChart2, FolderPlus, Globe,
-    Smartphone, Lock, Tag, QrCode, Download, Clock, Ghost, Split, Server, Shield, Activity
+    Smartphone, Lock, Tag, QrCode, Download, Clock, Ghost, Split, Server, Shield, Activity, Cloud, Megaphone
 } from 'lucide-react'
 import AnalyticsView from '../components/AnalyticsView'
 import { format } from 'date-fns'
@@ -718,8 +718,8 @@ export default function Dashboard() {
                                 {teams.map(team => (
                                     <div 
                                         key={team.id} 
-                                        className={`border ${activeWorkspace?.id === team.id ? 'border-emerald-400 ring-1 ring-emerald-400 bg-emerald-50/20' : 'border-gray-200'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-40 bg-white group relative`}
-                                        onClick={() => />* Placeholder, let's change openManageTeam target  * /}
+                                        className={`border ${activeWorkspace?.id === team.id ? 'border-emerald-400 ring-1 ring-emerald-400 bg-emerald-50/20' : 'border-gray-200'} rounded-xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between h-40 bg-white group relative`}
+                                        onClick={() => openManageTeam(team)}
                                     >
                                         {/* TOP ACTION BAR ON HOVER */}
                                         <div className="absolute top-2 right-2 flex opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 backdrop-blur-sm rounded-lg p-1 shadow border border-gray-100 gap-1 z-20">
@@ -815,21 +815,40 @@ export default function Dashboard() {
                                 {/* Left Navigation Sidebar */}
                                 <div className="w-full md:w-64 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col sticky top-4">
                                     <div className="p-4 bg-gray-50 border-b border-gray-200">
-                                        <p className="text-[11px] text-gray-500 uppercase font-black tracking-wider mb-2">Team management</p>
-                                        <div className="font-bold text-gray-900 flex items-center justify-between bg-white border border-gray-200 rounded p-2 cursor-pointer shadow-sm">
-                                            <span className="truncate pr-2">{managingTeam.name}</span>
-                                            <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+                                        <p className="text-[11px] text-gray-500 uppercase font-bold tracking-wider mb-2">Team management</p>
+                                        <div className="relative">
+                                            <select 
+                                                className="w-full font-bold text-gray-900 bg-white border border-gray-200 rounded p-2 cursor-pointer shadow-sm appearance-none outline-none focus:ring-1 focus:ring-emerald-500 text-sm"
+                                                value={managingTeam.id}
+                                                onChange={(e) => {
+                                                    const selectedTeam = teams.find(t => t.id === e.target.value);
+                                                    if (selectedTeam) openManageTeam(selectedTeam);
+                                                }}
+                                            >
+                                                {teams.map(t => (
+                                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-500">
+                                                <ChevronDown size={14} />
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="p-2 flex flex-col gap-1">
-                                        <button onClick={() => setTeamManagementTab('Members')} className={`p-3 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Members' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                        <button onClick={() => setTeamManagementTab('Members')} className={`p-2.5 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Members' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
                                             <Users size={16} /> Members
                                         </button>
-                                        <button onClick={() => setTeamManagementTab('Domains')} className={`p-3 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Domains' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                        <button onClick={() => setTeamManagementTab('Domains')} className={`p-2.5 flex items-center gap-3 text-sm font-medium rounded-md transition-colors ${teamManagementTab === 'Domains' ? 'text-emerald-700 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50'}`}>
                                             <Globe size={16} /> Domains
                                         </button>
-                                        <button className="p-3 flex items-center gap-3 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50">
-                                            <Server size={16} /> SAML config
+                                        <button className="p-2.5 flex items-center gap-3 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50">
+                                            <Cloud size={16} /> SAML configuration
+                                        </button>
+                                        <button className="p-2.5 flex items-center gap-3 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50">
+                                            <Globe size={16} /> Geo templates
+                                        </button>
+                                        <button className="p-2.5 flex items-center gap-3 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50">
+                                            <Megaphone size={16} /> Campaign templates
                                         </button>
                                     </div>
                                 </div>
